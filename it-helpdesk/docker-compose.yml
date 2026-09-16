@@ -1,0 +1,12 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: deskline-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - deskline-mongodb-data:/data/db
+
+volumes:
+  deskline-mongodb-data:
