@@ -11,6 +11,8 @@ import TicketDetail from './pages/TicketDetail';
 import CreateTicket from './pages/CreateTicket';
 import Users from './pages/Users';
 import Categories from './pages/Categories';
+import ChangeRequests from './pages/ChangeRequests';
+import Departments from './pages/Departments';
 
 function App() {
   const { user, loading } = useAuth();
@@ -71,7 +73,7 @@ function App() {
       <Route
         path="/users"
         element={
-          <ProtectedRoute roles={['admin']}>
+          <ProtectedRoute roles={['admin', 'manager']}>
             <Layout>
               <Users />
             </Layout>
@@ -88,6 +90,8 @@ function App() {
           </ProtectedRoute>
         }
       />
+      <Route path="/change-requests" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><ChangeRequests /></Layout></ProtectedRoute>} />
+      <Route path="/departments" element={<ProtectedRoute roles={['admin']}><Layout><Departments /></Layout></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

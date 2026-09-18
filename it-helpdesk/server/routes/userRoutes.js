@@ -9,10 +9,10 @@ const {
   deleteUser,
 } = require('../controllers/userController');
 
-router.get('/agents', protect, authorize('admin', 'agent'), getAgents);
-router.get('/', protect, authorize('admin'), getUsers);
+router.get('/agents', protect, authorize('admin', 'manager', 'agent'), getAgents);
+router.get('/', protect, authorize('admin', 'manager'), getUsers);
 router.post('/', protect, authorize('admin'), createUser);
-router.put('/:id', protect, authorize('admin'), updateUser);
-router.delete('/:id', protect, authorize('admin'), deleteUser);
+router.put('/:id', protect, authorize('admin', 'manager'), updateUser);
+router.delete('/:id', protect, authorize('admin', 'manager'), deleteUser);
 
 module.exports = router;

@@ -10,6 +10,8 @@ const userRoutes = require('./routes/userRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const departmentRoutes = require('./routes/departmentRoutes');
+const changeRequestRoutes = require('./routes/changeRequestRoutes');
 
 connectDB();
 
@@ -26,6 +28,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/departments', departmentRoutes);
+app.use('/api/change-requests', changeRequestRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -13,6 +13,9 @@ const getComments = async (req, res, next) => {
     if (req.user.role === 'employee' && String(ticket.createdBy) !== String(req.user._id)) {
       return res.status(403).json({ message: 'Forbidden: not your ticket' });
     }
+    if (req.user.role === 'manager' && (!req.user.departmentId || String(ticket.departmentId) !== String(req.user.departmentId))) {
+      return res.status(403).json({ message: 'Managers can only access comments in their department' });
+    }
 
     const filter = { ticket: req.params.ticketId };
     if (req.user.role === 'employee') {
@@ -45,6 +48,9 @@ const addComment = async (req, res, next) => {
 
     if (req.user.role === 'employee' && String(ticket.createdBy) !== String(req.user._id)) {
       return res.status(403).json({ message: 'Forbidden: not your ticket' });
+    }
+    if (req.user.role === 'manager' && (!req.user.departmentId || String(ticket.departmentId) !== String(req.user.departmentId))) {
+      return res.status(403).json({ message: 'Managers can only comment on tickets in their department' });
     }
 
     // Only agents/admins can post internal-only notes

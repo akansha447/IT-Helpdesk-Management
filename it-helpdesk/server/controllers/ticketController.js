@@ -1,9 +1,11 @@
 const Ticket = require('../models/Ticket');
 const Category = require('../models/Category');
 const Comment = require('../models/Comment');
+const Department = require('../models/Department');
 
 const POPULATE_FIELDS = [
   { path: 'category', select: 'name baseSlaHours' },
+  { path: 'departmentId', select: 'name email' },
   { path: 'createdBy', select: 'name email' },
   { path: 'assignedTo', select: 'name email' },
 ];
@@ -13,7 +15,7 @@ const POPULATE_FIELDS = [
 // @access employee, agent, admin
 const createTicket = async (req, res, next) => {
   try {
-    const { title, description, category, priority } = req.body;
+    const { title, description, category, departmentId, severity, priority, problemType, branchSite, attachmentName, resolutionHours } = req.body;
 
     if (!title || !description || !category) {
       return res.status(400).json({ message: 'Title, description and category are required' });
@@ -24,15 +26,31 @@ const createTicket = async (req, res, next) => {
       return res.status(400).json({ message: 'Invalid category' });
     }
 
-    const dueAt = Ticket.computeDueDate(categoryDoc.baseSlaHours, priority || 'Medium');
+    const selectedDepartmentId = req.user.role === 'manager' ? req.user.departmentId : departmentId;
+    if ((req.user.role === 'admin' || req.user.role === 'manager') && selectedDepartmentId) {
+      const department = await Department.findById(selectedDepartmentId);
+      if (!department || !department.isActive) {
+        return res.status(400).json({ message: 'Invalid or inactive department' });
+      }
+    }
+
+    const selectedPriority = priority || 'P2';
+    const dueAt = Ticket.computeDueDate(categoryDoc.baseSlaHours, selectedPriority);
 
     const ticket = await Ticket.create({
       title,
       description,
       category,
-      priority: priority || 'Medium',
+      departmentId: selectedDepartmentId || null,
+      severity: severity || 'Medium',
+      priority: selectedPriority,
+      problemType,
+      branchSite,
+      attachmentName,
+      resolutionHours: Number(resolutionHours) || 0,
       createdBy: req.user._id,
       dueAt,
+      pickupAt: new Date(),
       activity: [{ message: `Ticket created by ${req.user.name}`, actor: req.user._id }],
     });
 
@@ -53,6 +71,9 @@ const getTickets = async (req, res, next) => {
 
     if (req.user.role === 'employee') {
       filter.createdBy = req.user._id;
+    } else if (req.user.role === 'manager') {
+      if (!req.user.departmentId) return res.json([]);
+      filter.departmentId = req.user.departmentId || null;
     }
 
     if (status) filter.status = status;
@@ -87,10 +108,12 @@ const getTicketById = async (req, res, next) => {
       return res.status(404).json({ message: 'Ticket not found' });
     }
 
-    if (
-      req.user.role === 'employee' &&
-      String(ticket.createdBy._id) !== String(req.user._id)
-    ) {
+    const cannotViewTicket = req.user.role === 'employee'
+      ? String(ticket.createdBy._id) !== String(req.user._id)
+      : req.user.role === 'manager'
+        ? !req.user.departmentId || String(ticket.departmentId?._id || ticket.departmentId) !== String(req.user.departmentId)
+        : false;
+    if (cannotViewTicket) {
       return res.status(403).json({ message: 'Forbidden: not your ticket' });
     }
 
@@ -110,7 +133,11 @@ const updateTicket = async (req, res, next) => {
       return res.status(404).json({ message: 'Ticket not found' });
     }
 
-    const { title, description, category, priority, status, assignedTo } = req.body;
+    if (req.user.role === 'manager' && (!req.user.departmentId || String(ticket.departmentId) !== String(req.user.departmentId))) {
+      return res.status(403).json({ message: 'Managers can only manage tickets in their department' });
+    }
+
+    const { title, description, category, severity, priority, status, assignedTo, problemType, branchSite, resolutionHours } = req.body;
     const logs = [];
 
     if (req.user.role === 'employee') {
@@ -131,6 +158,10 @@ const updateTicket = async (req, res, next) => {
         ticket.dueAt = Ticket.computeDueDate(categoryDoc.baseSlaHours, priority, ticket.createdAt);
         logs.push(`Priority changed to ${priority} by ${req.user.name}`);
       }
+      if (severity !== undefined) ticket.severity = severity;
+      if (problemType !== undefined) ticket.problemType = problemType;
+      if (branchSite !== undefined) ticket.branchSite = branchSite;
+      if (resolutionHours !== undefined) ticket.resolutionHours = Number(resolutionHours) || 0;
       if (category !== undefined && String(category) !== String(ticket.category)) {
         ticket.category = category;
         logs.push(`Category changed by ${req.user.name}`);

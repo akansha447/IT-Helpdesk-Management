@@ -23,7 +23,13 @@ const ticketSchema = new mongoose.Schema(
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
-    priority: { type: String, enum: ['Low', 'Medium', 'High', 'Urgent'], default: 'Medium' },
+    departmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Department', default: null },
+    severity: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Medium' },
+    priority: { type: String, enum: ['P1', 'P2', 'P3', 'Low', 'Medium', 'High', 'Urgent'], default: 'P2' },
+    problemType: { type: String, default: '' },
+    branchSite: { type: String, default: '' },
+    attachmentName: { type: String, default: '' },
+    resolutionHours: { type: Number, default: 0 },
     status: {
       type: String,
       enum: ['Open', 'In Progress', 'On Hold', 'Resolved', 'Closed'],
@@ -34,6 +40,7 @@ const ticketSchema = new mongoose.Schema(
     dueAt: { type: Date },
     resolvedAt: { type: Date, default: null },
     closedAt: { type: Date, default: null },
+    pickupAt: { type: Date, default: null },
     activity: [activityEntrySchema],
   },
   { timestamps: true }
@@ -49,7 +56,7 @@ ticketSchema.pre('save', async function (next) {
 });
 
 ticketSchema.statics.computeDueDate = function (baseSlaHours, priority, from = new Date()) {
-  const multiplier = PRIORITY_MULTIPLIER[priority] ?? 1;
+  const multiplier = PRIORITY_MULTIPLIER[priority] ?? ({ P1: 0.25, P2: 1, P3: 1.5 }[priority] ?? 1);
   const hours = baseSlaHours * multiplier;
   return new Date(from.getTime() + hours * 60 * 60 * 1000);
 };

@@ -68,28 +68,18 @@ const Dashboard = () => {
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total tickets" value={stats.totalTickets} icon={BarChart3} accent="ink" />
-        <StatCard
-          label="Open"
-          value={stats.byStatus.Open}
-          sublabel="Awaiting first response"
-          icon={Clock}
-          accent="teal"
-        />
-        <StatCard
-          label="Overdue (SLA breach)"
-          value={stats.overdueCount}
-          sublabel="Past their due date"
-          icon={AlertTriangle}
-          accent="coral"
-        />
-        <StatCard
-          label="Avg. resolution time"
-          value={`${stats.avgResolutionHours}h`}
-          sublabel="Across resolved tickets"
-          icon={CheckCircle2}
-          accent="amber"
-        />
+        <Link to="/tickets" className="block rounded-xl focus-ring">
+          <StatCard label="Total tickets" value={stats.totalTickets} icon={BarChart3} accent="ink" className="h-full transition-transform hover:-translate-y-0.5" />
+        </Link>
+        <Link to="/tickets?status=Open" className="block rounded-xl focus-ring">
+          <StatCard label="Open" value={stats.byStatus.Open} sublabel="Awaiting first response" icon={Clock} accent="teal" className="h-full transition-transform hover:-translate-y-0.5" />
+        </Link>
+        <Link to="/tickets?overdue=true" className="block rounded-xl focus-ring">
+          <StatCard label="Overdue (SLA breach)" value={stats.overdueCount} sublabel="Past their due date" icon={AlertTriangle} accent="coral" className="h-full transition-transform hover:-translate-y-0.5" />
+        </Link>
+        <Link to="/tickets?status=Resolved" className="block rounded-xl focus-ring">
+          <StatCard label="Avg. resolution time" value={`${stats.avgResolutionHours}h`} sublabel="View resolved tickets" icon={CheckCircle2} accent="amber" className="h-full transition-transform hover:-translate-y-0.5" />
+        </Link>
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">

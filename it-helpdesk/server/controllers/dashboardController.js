@@ -4,7 +4,11 @@ const Ticket = require('../models/Ticket');
 // @route GET /api/dashboard
 const getDashboardStats = async (req, res, next) => {
   try {
-    const scopeFilter = req.user.role === 'employee' ? { createdBy: req.user._id } : {};
+    const scopeFilter = req.user.role === 'employee'
+      ? { createdBy: req.user._id }
+      : req.user.role === 'manager'
+        ? (req.user.departmentId ? { departmentId: req.user.departmentId } : { _id: null })
+        : {};
 
     const [statusAgg, priorityAgg, tickets, recentTickets] = await Promise.all([
       Ticket.aggregate([{ $match: scopeFilter }, { $group: { _id: '$status', count: { $sum: 1 } } }]),

@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Search, PlusCircle, AlertTriangle } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
+import { format } from 'date-fns';
 
 const STATUS_OPTIONS = ['Open', 'In Progress', 'On Hold', 'Resolved', 'Closed'];
 const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'];
 
 const TicketsList = () => {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ status: '', priority: '', search: '', overdue: '' });
+  const [filters, setFilters] = useState({ status: searchParams.get('status') || '', priority: '', search: '', overdue: searchParams.get('overdue') || '' });
 
   const fetchTickets = async () => {
     setLoading(true);
@@ -102,25 +104,27 @@ const TicketsList = () => {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
-              <th className="px-5 py-3">Ticket</th>
+              <th className="px-5 py-3">Ticket no</th>
+              {user.role === 'admin' && <><th className="px-5 py-3">Client</th><th className="px-5 py-3">Department</th><th className="px-5 py-3">Severity</th><th className="px-5 py-3">Pickup</th><th className="px-5 py-3">Completion</th></>}
               <th className="px-5 py-3">Category</th>
               <th className="px-5 py-3">Priority</th>
               <th className="px-5 py-3">Status</th>
               {user.role !== 'employee' && <th className="px-5 py-3">Assigned to</th>}
-              <th className="px-5 py-3">Updated</th>
+              <th className="px-5 py-3">Created</th>
+              {user.role === 'admin' && <><th className="px-5 py-3">Response</th><th className="px-5 py-3">Record time</th><th className="px-5 py-3">SLA status</th><th className="px-5 py-3">Compliance</th><th className="px-5 py-3">Breach</th><th className="px-5 py-3">Action</th></>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-slate-400">
+                <td colSpan={user.role === 'admin' ? 17 : 6} className="px-5 py-10 text-center text-slate-400">
                   Loading tickets…
                 </td>
               </tr>
             )}
             {!loading && tickets.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-slate-400">
+                <td colSpan={user.role === 'admin' ? 17 : 6} className="px-5 py-10 text-center text-slate-400">
                   No tickets match these filters.
                 </td>
               </tr>
@@ -138,6 +142,7 @@ const TicketsList = () => {
                       <p className="font-medium text-ink-900">{ticket.title}</p>
                     </Link>
                   </td>
+                  {user.role === 'admin' && <><td className="px-5 py-3.5">{ticket.createdBy?.name}</td><td className="px-5 py-3.5">{ticket.departmentId?.name || '—'}</td><td className="px-5 py-3.5">{ticket.severity || '—'}</td><td className="px-5 py-3.5">{ticket.pickupAt ? format(new Date(ticket.pickupAt), 'MMM d, HH:mm') : '—'}</td><td className="px-5 py-3.5">{ticket.resolvedAt ? format(new Date(ticket.resolvedAt), 'MMM d, HH:mm') : '—'}</td></>}
                   <td className="px-5 py-3.5 text-slate-600">{ticket.category?.name}</td>
                   <td className="px-5 py-3.5">
                     <PriorityBadge priority={ticket.priority} />
@@ -158,6 +163,7 @@ const TicketsList = () => {
                   <td className="px-5 py-3.5 text-slate-500">
                     {formatDistanceToNow(new Date(ticket.updatedAt), { addSuffix: true })}
                   </td>
+                  {user.role === 'admin' && <><td className="px-5 py-3.5">{ticket.pickupAt ? `${Math.max(0, Math.round((new Date(ticket.pickupAt) - new Date(ticket.createdAt)) / 60000))}m` : '—'}</td><td className="px-5 py-3.5">{ticket.resolutionHours ? `${ticket.resolutionHours}h` : '—'}</td><td className="px-5 py-3.5">{ticket.isOverdue ? 'Breached' : 'Within SLA'}</td><td className="px-5 py-3.5">{ticket.isOverdue ? 'No' : 'Yes'}</td><td className="px-5 py-3.5">{ticket.isOverdue ? 'Yes' : 'No'}</td><td className="px-5 py-3.5"><Link to={`/tickets/${ticket._id}`} className="font-medium text-teal-600 hover:text-teal-700">View</Link></td></>}
                 </tr>
               ))}
           </tbody>

@@ -1,4 +1,4 @@
-const StatCard = ({ label, value, sublabel, accent = 'teal', icon: Icon }) => {
+const StatCard = ({ label, value, sublabel, accent = 'teal', icon: Icon, className = '' }) => {
   const accentMap = {
     teal: 'text-teal-600 bg-teal-50',
     coral: 'text-coral-500 bg-coral-400/10',
@@ -7,7 +7,7 @@ const StatCard = ({ label, value, sublabel, accent = 'teal', icon: Icon }) => {
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-soft">
+    <div className={`rounded-xl border border-slate-200 bg-white p-5 shadow-soft ${className}`}>
       <div className="flex items-start justify-between">
         <p className="text-sm font-medium text-slate-500">{label}</p>
         {Icon && (

@@ -7,17 +7,21 @@ import {
   LogOut,
   PlusCircle,
   Headset,
+  GitPullRequest,
+  Building2,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: LayoutGrid, roles: ['admin', 'agent', 'employee'] },
-  { to: '/tickets', label: 'Tickets', icon: Ticket, roles: ['admin', 'agent', 'employee'] },
-  { to: '/users', label: 'Team', icon: Users, roles: ['admin'] },
+  { to: '/', label: 'Dashboard', icon: LayoutGrid, roles: ['admin', 'manager', 'agent', 'employee'] },
+  { to: '/tickets', label: 'Tickets', icon: Ticket, roles: ['admin', 'manager', 'agent', 'employee'] },
+  { to: '/users', label: 'Team', icon: Users, roles: ['admin', 'manager'] },
   { to: '/categories', label: 'Categories', icon: FolderKanban, roles: ['admin'] },
+  { to: '/change-requests', label: 'Change requests', icon: GitPullRequest, roles: ['admin', 'manager', 'agent', 'employee'] },
+  { to: '/departments', label: 'Departments', icon: Building2, roles: ['admin'] },
 ];
 
-const roleLabel = { admin: 'Administrator', agent: 'Agent', employee: 'Employee' };
+const roleLabel = { admin: 'Administrator', manager: 'Manager', agent: 'Agent', employee: 'Employee' };
 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();

@@ -8,7 +8,7 @@ import StatusBadge from '../components/StatusBadge';
 import PriorityBadge from '../components/PriorityBadge';
 
 const STATUS_OPTIONS = ['Open', 'In Progress', 'On Hold', 'Resolved', 'Closed'];
-const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'];
+const PRIORITY_OPTIONS = ['P1', 'P2', 'P3'];
 
 const TicketDetail = () => {
   const { id } = useParams();
@@ -24,7 +24,7 @@ const TicketDetail = () => {
   const [posting, setPosting] = useState(false);
   const [tab, setTab] = useState('comments');
 
-  const isStaff = user.role === 'admin' || user.role === 'agent';
+  const isStaff = user.role === 'admin' || user.role === 'manager' || user.role === 'agent';
 
   const load = useCallback(async () => {
     const [ticketRes, commentsRes] = await Promise.all([
