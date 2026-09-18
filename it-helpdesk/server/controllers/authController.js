@@ -51,8 +51,45 @@ const login = async (req, res, next) => {
       return res.status(403).json({ message: 'This account has been deactivated' });
     }
 
+    user.activityLog = user.activityLog || [];
+    user.activityLog.push({
+      action: 'login',
+      description: `${user.name} logged in`,
+      entityType: 'user',
+      entityId: user._id,
+      entityName: user.name,
+      createdAt: new Date(),
+    });
+    await user.save();
+
     const token = generateToken(user._id);
     res.json({ token, user: user.toSafeObject() });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc  Logout
+// @route POST /api/auth/logout
+const logout = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.activityLog = user.activityLog || [];
+    user.activityLog.push({
+      action: 'logout',
+      description: `${user.name} logged out`,
+      entityType: 'user',
+      entityId: user._id,
+      entityName: user.name,
+      createdAt: new Date(),
+    });
+    await user.save();
+
+    res.json({ message: 'Logged out successfully' });
   } catch (error) {
     next(error);
   }
@@ -68,4 +105,4 @@ const getMe = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, getMe };
+module.exports = { register, login, logout, getMe };

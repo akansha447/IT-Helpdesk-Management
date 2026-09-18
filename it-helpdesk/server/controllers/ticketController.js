@@ -186,6 +186,21 @@ const updateTicket = async (req, res, next) => {
 
     logs.forEach((message) => ticket.activity.push({ message, actor: req.user._id }));
 
+    const actor = await require('../models/User').findById(req.user._id);
+    if (actor) {
+      actor.activityLog = actor.activityLog || [];
+      actor.activityLog.push({
+        action: 'ticket_update',
+        description: logs.join('; ') || `Ticket ${ticket.ticketNumber} updated`,
+        entityType: 'ticket',
+        entityId: ticket._id,
+        entityName: ticket.title,
+        relatedUser: ticket.assignedTo || ticket.createdBy,
+        createdAt: new Date(),
+      });
+      await actor.save();
+    }
+
     await ticket.save();
     await ticket.populate(POPULATE_FIELDS);
     res.json(ticket);

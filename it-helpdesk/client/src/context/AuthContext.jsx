@@ -46,7 +46,15 @@ export const AuthProvider = ({ children }) => {
     return data.user;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      const token = localStorage.getItem('deskline_token');
+      if (token) {
+        await api.post('/auth/logout');
+      }
+    } catch (error) {
+      // Ignore logout API failures; still clear local session.
+    }
     localStorage.removeItem('deskline_token');
     localStorage.removeItem('deskline_user');
     setUser(null);

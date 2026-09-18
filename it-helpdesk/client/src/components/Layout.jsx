@@ -9,6 +9,8 @@ import {
   Headset,
   GitPullRequest,
   Building2,
+  BookOpen,
+  History,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,6 +20,8 @@ const NAV_ITEMS = [
   { to: '/users', label: 'Team', icon: Users, roles: ['admin', 'manager'] },
   { to: '/categories', label: 'Categories', icon: FolderKanban, roles: ['admin'] },
   { to: '/change-requests', label: 'Change requests', icon: GitPullRequest, roles: ['admin', 'manager', 'agent', 'employee'] },
+  { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen, roles: ['admin', 'manager', 'agent', 'employee'] },
+  { to: '/activity', label: 'Activity Log', icon: History, roles: ['admin', 'manager', 'agent', 'employee'] },
   { to: '/departments', label: 'Departments', icon: Building2, roles: ['admin'] },
 ];
 

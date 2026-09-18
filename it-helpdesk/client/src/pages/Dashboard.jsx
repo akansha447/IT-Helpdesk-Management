@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { BarChart3, Clock, AlertTriangle, CheckCircle2, FolderKanban, Download, BadgeCheck } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -31,6 +31,8 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [ticketFilter, setTicketFilter] = useState('all');
+  const [changeRequestFilter, setChangeRequestFilter] = useState('all');
 
   useEffect(() => {
     api
@@ -51,6 +53,12 @@ const Dashboard = () => {
   const priorityData = Object.entries(stats.byPriority)
     .filter(([, count]) => count > 0)
     .map(([priority, count]) => ({ name: priority, value: count }));
+  const visibleRecentTickets = ticketFilter === 'all'
+    ? stats.recentTickets
+    : stats.recentTickets.filter((ticket) => ticket.status === ticketFilter);
+  const visibleChangeRequests = changeRequestFilter === 'all'
+    ? (stats.recentChangeRequests || [])
+    : (stats.recentChangeRequests || []).filter((record) => record.status === changeRequestFilter);
 
   const priorityColors = { Low: '#8792A2', Medium: '#0E7C86', High: '#E8A33D', Urgent: '#C64F3A' };
 
@@ -67,18 +75,21 @@ const Dashboard = () => {
         </p>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Link to="/tickets" className="block rounded-xl focus-ring">
           <StatCard label="Total tickets" value={stats.totalTickets} icon={BarChart3} accent="ink" className="h-full transition-transform hover:-translate-y-0.5" />
         </Link>
         <Link to="/tickets?status=Open" className="block rounded-xl focus-ring">
           <StatCard label="Open" value={stats.byStatus.Open} sublabel="Awaiting first response" icon={Clock} accent="teal" className="h-full transition-transform hover:-translate-y-0.5" />
         </Link>
-        <Link to="/tickets?overdue=true" className="block rounded-xl focus-ring">
-          <StatCard label="Overdue (SLA breach)" value={stats.overdueCount} sublabel="Past their due date" icon={AlertTriangle} accent="coral" className="h-full transition-transform hover:-translate-y-0.5" />
+        <Link to="/tickets?assigned=true" className="block rounded-xl focus-ring">
+          <StatCard label="Assigned" value={stats.assignedTicketsCount || 0} sublabel="Working tickets" icon={BadgeCheck} accent="amber" className="h-full transition-transform hover:-translate-y-0.5" />
         </Link>
-        <Link to="/tickets?status=Resolved" className="block rounded-xl focus-ring">
-          <StatCard label="Avg. resolution time" value={`${stats.avgResolutionHours}h`} sublabel="View resolved tickets" icon={CheckCircle2} accent="amber" className="h-full transition-transform hover:-translate-y-0.5" />
+        <Link to="/tickets?status=Closed" className="block rounded-xl focus-ring">
+          <StatCard label="Closed" value={stats.closedTicketsCount || 0} sublabel="Completed work" icon={CheckCircle2} accent="teal" className="h-full transition-transform hover:-translate-y-0.5" />
+        </Link>
+        <Link to="/change-requests" className="block rounded-xl focus-ring">
+          <StatCard label="Change requests" value={stats.changeRequestsCount || 0} sublabel="CAB records" icon={FolderKanban} accent="coral" className="h-full transition-transform hover:-translate-y-0.5" />
         </Link>
       </div>
 
@@ -138,33 +149,66 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-soft">
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-          <h2 className="text-sm font-semibold text-ink-800">Recent tickets</h2>
-          <Link to="/tickets" className="text-sm font-medium text-teal-600 hover:text-teal-700">
-            View all
-          </Link>
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-soft">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-ink-800">Recent tickets</h2>
+            <div className="flex items-center gap-2 text-xs">
+              {['all', 'Open', 'Closed'].map((filter) => (
+                <button key={filter} onClick={() => setTicketFilter(filter)} className={`rounded-full px-2.5 py-1 ${ticketFilter === filter ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  {filter === 'all' ? 'All' : filter}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {visibleRecentTickets.length === 0 && (
+              <p className="px-5 py-8 text-center text-sm text-slate-400">
+                No tickets match this status filter.
+              </p>
+            )}
+            {visibleRecentTickets.map((ticket) => (
+              <Link
+                key={ticket._id}
+                to={`/tickets/${ticket._id}`}
+                className="flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-slate-50"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-xs text-slate-400">{ticket.ticketNumber}</p>
+                  <p className="truncate text-sm font-medium text-ink-900">{ticket.title}</p>
+                </div>
+                <PriorityBadge priority={ticket.priority} />
+                <StatusBadge status={ticket.status} />
+              </Link>
+            ))}
+          </div>
         </div>
-        <div className="divide-y divide-slate-100">
-          {stats.recentTickets.length === 0 && (
-            <p className="px-5 py-8 text-center text-sm text-slate-400">
-              No tickets yet — raise your first one to get started.
-            </p>
-          )}
-          {stats.recentTickets.map((ticket) => (
-            <Link
-              key={ticket._id}
-              to={`/tickets/${ticket._id}`}
-              className="flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-slate-50"
-            >
-              <div className="min-w-0 flex-1">
-                <p className="font-mono text-xs text-slate-400">{ticket.ticketNumber}</p>
-                <p className="truncate text-sm font-medium text-ink-900">{ticket.title}</p>
+
+        <div className="rounded-xl border border-slate-200 bg-white shadow-soft">
+          <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+            <h2 className="text-sm font-semibold text-ink-800">Recent change requests</h2>
+            <div className="flex items-center gap-2 text-xs">
+              {['all', 'Draft', 'Pending CAB', 'Approved', 'Closed'].map((filter) => (
+                <button key={filter} onClick={() => setChangeRequestFilter(filter)} className={`rounded-full px-2.5 py-1 ${changeRequestFilter === filter ? 'bg-coral-500 text-white' : 'bg-slate-100 text-slate-600'}`}>
+                  {filter === 'all' ? 'All' : filter}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {visibleChangeRequests.length === 0 && (
+              <p className="px-5 py-8 text-center text-sm text-slate-400">No change requests match this filter.</p>
+            )}
+            {visibleChangeRequests.map((record) => (
+              <div key={record._id} className="flex items-center justify-between gap-3 px-5 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <p className="font-mono text-xs text-slate-400">{record.crNumber}</p>
+                  <p className="truncate text-sm font-medium text-ink-900">{record.relatedTicket?.title || 'Ticket reference'}</p>
+                </div>
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium uppercase tracking-wide text-slate-600">{record.status}</span>
               </div>
-              <PriorityBadge priority={ticket.priority} />
-              <StatusBadge status={ticket.status} />
-            </Link>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </div>

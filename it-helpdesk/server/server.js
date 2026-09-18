@@ -12,6 +12,9 @@ const ticketRoutes = require('./routes/ticketRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const changeRequestRoutes = require('./routes/changeRequestRoutes');
+const knowledgeBaseRoutes = require('./routes/knowledgeBaseRoutes');
+const exportRoutes = require('./routes/exportRoutes');
+const activityRoutes = require('./routes/activityRoutes');
 
 connectDB();
 
@@ -30,6 +33,9 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/change-requests', changeRequestRoutes);
+app.use('/api/knowledge-base', knowledgeBaseRoutes);
+app.use('/api/export', exportRoutes);
+app.use('/api/activity', activityRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

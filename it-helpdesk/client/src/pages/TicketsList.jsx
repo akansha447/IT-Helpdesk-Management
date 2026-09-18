@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, PlusCircle, AlertTriangle } from 'lucide-react';
+import { Search, PlusCircle, AlertTriangle, Download } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,7 @@ const TicketsList = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ status: searchParams.get('status') || '', priority: '', search: '', overdue: searchParams.get('overdue') || '' });
+  const [exportSettings, setExportSettings] = useState({ range: 'all', format: 'excel', status: '' });
 
   const fetchTickets = async () => {
     setLoading(true);
@@ -34,6 +35,17 @@ const TicketsList = () => {
     return () => clearTimeout(timeout);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
+
+  const downloadTickets = async () => {
+    const params = { ...exportSettings, status: exportSettings.status || filters.status || '' };
+    const response = await api.get('/export/tickets', { params, responseType: 'blob' });
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `tickets-${Date.now()}.${exportSettings.format === 'pdf' ? 'pdf' : 'xlsx'}`;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
+  };
 
   return (
     <div>
@@ -98,6 +110,22 @@ const TicketsList = () => {
           <AlertTriangle size={14} />
           Overdue only
         </button>
+        <div className="ml-auto flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-1.5">
+          <select value={exportSettings.range} onChange={(e) => setExportSettings({ ...exportSettings, range: e.target.value })} className="rounded-md bg-transparent px-2 py-1 text-xs">
+            <option value="all">All</option>
+            <option value="day">Day</option>
+            <option value="week">Week</option>
+            <option value="month">Month</option>
+            <option value="date">Date</option>
+          </select>
+          <select value={exportSettings.format} onChange={(e) => setExportSettings({ ...exportSettings, format: e.target.value })} className="rounded-md bg-transparent px-2 py-1 text-xs">
+            <option value="excel">Excel</option>
+            <option value="pdf">PDF</option>
+          </select>
+          <button onClick={downloadTickets} className="flex items-center gap-1 rounded-md bg-teal-500 px-2.5 py-1.5 text-xs font-semibold text-white">
+            <Download size={12} /> Download
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">

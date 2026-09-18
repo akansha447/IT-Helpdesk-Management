@@ -1,4 +1,5 @@
 const Ticket = require('../models/Ticket');
+const ChangeRequest = require('../models/ChangeRequest');
 
 // @desc  Aggregate stats for the dashboard
 // @route GET /api/dashboard
@@ -10,16 +11,25 @@ const getDashboardStats = async (req, res, next) => {
         ? (req.user.departmentId ? { departmentId: req.user.departmentId } : { _id: null })
         : {};
 
-    const [statusAgg, priorityAgg, tickets, recentTickets] = await Promise.all([
+    const [statusAgg, priorityAgg, tickets, recentTickets, changeRequests, recentChangeRequests] = await Promise.all([
       Ticket.aggregate([{ $match: scopeFilter }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
       Ticket.aggregate([{ $match: scopeFilter }, { $group: { _id: '$priority', count: { $sum: 1 } } }]),
-      Ticket.find(scopeFilter).select('status dueAt priority resolvedAt createdAt'),
+      Ticket.find(scopeFilter).select('status dueAt priority resolvedAt createdAt assignedTo createdBy departmentId'),
       Ticket.find(scopeFilter)
         .populate('category', 'name')
         .populate('createdBy', 'name')
         .populate('assignedTo', 'name')
         .sort({ createdAt: -1 })
         .limit(8),
+      ChangeRequest.find(req.user.role === 'employee' ? { createdBy: req.user._id } : req.user.role === 'manager' ? { relatedTicket: { $in: await Ticket.find({ departmentId: req.user.departmentId || null }).distinct('_id') } } : {})
+        .populate('relatedTicket', 'ticketNumber title')
+        .populate('createdBy', 'name')
+        .sort({ createdAt: -1 }),
+      ChangeRequest.find(req.user.role === 'employee' ? { createdBy: req.user._id } : req.user.role === 'manager' ? { relatedTicket: { $in: await Ticket.find({ departmentId: req.user.departmentId || null }).distinct('_id') } } : {})
+        .populate('relatedTicket', 'ticketNumber title')
+        .populate('createdBy', 'name')
+        .sort({ createdAt: -1 })
+        .limit(5),
     ]);
 
     const byStatus = { Open: 0, 'In Progress': 0, 'On Hold': 0, Resolved: 0, Closed: 0 };
@@ -33,6 +43,9 @@ const getDashboardStats = async (req, res, next) => {
       (t) => t.dueAt && !['Resolved', 'Closed'].includes(t.status) && new Date(t.dueAt) < now
     ).length;
 
+    const assignedTicketsCount = tickets.filter((t) => t.assignedTo).length;
+    const closedTicketsCount = tickets.filter((t) => t.status === 'Closed').length;
+
     const resolvedWithTimes = tickets.filter((t) => t.resolvedAt);
     const avgResolutionHours =
       resolvedWithTimes.length > 0
@@ -43,11 +56,15 @@ const getDashboardStats = async (req, res, next) => {
 
     res.json({
       totalTickets: tickets.length,
+      assignedTicketsCount,
+      closedTicketsCount,
+      changeRequestsCount: changeRequests.length,
       byStatus,
       byPriority,
       overdueCount,
       avgResolutionHours: Math.round(avgResolutionHours * 10) / 10,
       recentTickets,
+      recentChangeRequests,
     });
   } catch (error) {
     next(error);

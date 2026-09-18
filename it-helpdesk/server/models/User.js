@@ -1,6 +1,19 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const activityLogEntrySchema = new mongoose.Schema(
+  {
+    action: { type: String, required: true },
+    description: { type: String, default: '' },
+    entityType: { type: String, default: '' },
+    entityId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    entityName: { type: String, default: '' },
+    relatedUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -13,6 +26,7 @@ const userSchema = new mongoose.Schema(
     mobile: { type: String, default: '' },
     employeeId: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
+    activityLog: [activityLogEntrySchema],
   },
   { timestamps: true }
 );
@@ -40,6 +54,7 @@ userSchema.methods.toSafeObject = function () {
     mobile: this.mobile,
     employeeId: this.employeeId,
     isActive: this.isActive,
+    activityLog: this.activityLog || [],
     createdAt: this.createdAt,
   };
 };

@@ -13,6 +13,8 @@ import Users from './pages/Users';
 import Categories from './pages/Categories';
 import ChangeRequests from './pages/ChangeRequests';
 import Departments from './pages/Departments';
+import KnowledgeBase from './pages/KnowledgeBase';
+import ActivityLog from './pages/ActivityLog';
 
 function App() {
   const { user, loading } = useAuth();
@@ -91,6 +93,8 @@ function App() {
         }
       />
       <Route path="/change-requests" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><ChangeRequests /></Layout></ProtectedRoute>} />
+      <Route path="/knowledge-base" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><KnowledgeBase /></Layout></ProtectedRoute>} />
+      <Route path="/activity" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><ActivityLog /></Layout></ProtectedRoute>} />
       <Route path="/departments" element={<ProtectedRoute roles={['admin']}><Layout><Departments /></Layout></ProtectedRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
