@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ShieldCheck, UserRound, Ticket as TicketIcon } from 'lucide-react';
+import { Download, ShieldCheck, UserRound, Ticket as TicketIcon } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -7,16 +7,15 @@ const ActivityLog = () => {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
   const [summary, setSummary] = useState({ totalSessions: 0, totalMinutes: 0, activeUsers: 0, currentTicket: null });
+  const [currentTickets, setCurrentTickets] = useState([]);
   const [filters, setFilters] = useState({ period: 'all', userId: 'all', mode: 'all' });
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
-    const load = async () => {
-      const { data } = await api.get('/users');
-      setUsers(data);
-    };
-    load();
-  }, []);
+    if (user.role === 'admin' || user.role === 'manager') {
+      api.get('/users').then(({ data }) => setUsers(data));
+    }
+  }, [user.role]);
 
   useEffect(() => {
     const load = async () => {
@@ -27,9 +26,20 @@ const ActivityLog = () => {
       const { data } = await api.get(`/activity?${params.toString()}`);
       setEntries(data.entries || []);
       setSummary(data.summary || { totalSessions: 0, totalMinutes: 0, activeUsers: 0, currentTicket: null });
+      setCurrentTickets(data.currentTickets || []);
     };
     load();
   }, [filters]);
+
+  const downloadAuditLog = async () => {
+    const response = await api.get('/activity/export', { params: filters, responseType: 'blob' });
+    const url = URL.createObjectURL(response.data);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `audit-log-${filters.period}.xlsx`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
 
   const iconFor = (entry) => {
     if (entry.action === 'login') return <ShieldCheck size={16} className="text-teal-600" />;
@@ -64,6 +74,9 @@ const ActivityLog = () => {
           <option value="all">All activity</option>
           <option value="mine">My activity</option>
         </select>
+        <button onClick={downloadAuditLog} className="flex items-center gap-2 rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700">
+          <Download size={16} /> Download Excel
+        </button>
       </div>
 
       <div className="mb-5 grid gap-4 md:grid-cols-4">
@@ -81,9 +94,19 @@ const ActivityLog = () => {
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-soft">
           <p className="text-xs uppercase tracking-wide text-slate-500">Current ticket</p>
-          <p className="mt-2 text-sm font-semibold text-ink-900">{summary.currentTicket ? summary.currentTicket.title : 'None'}</p>
+          <p className="mt-2 text-sm font-semibold text-ink-900">{summary.currentTicket ? `${summary.currentTicket.ticketNumber || ''} ${summary.currentTicket.title}` : 'None'}</p>
         </div>
       </div>
+
+      {currentTickets.length > 0 && (
+        <div className="mb-5 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-soft">
+          <div className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-ink-900">Currently open work</div>
+          <table className="min-w-full text-left text-sm">
+            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-4 py-3">Ticket</th><th className="px-4 py-3">Title</th><th className="px-4 py-3">Assigned to</th><th className="px-4 py-3">Status</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">{currentTickets.map((ticket) => <tr key={ticket.id}><td className="px-4 py-3 font-medium">{ticket.ticketNumber}</td><td className="px-4 py-3">{ticket.title}</td><td className="px-4 py-3">{ticket.assignedTo}</td><td className="px-4 py-3">{ticket.status}</td></tr>)}</tbody>
+          </table>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
         <div className="grid gap-3 p-4">

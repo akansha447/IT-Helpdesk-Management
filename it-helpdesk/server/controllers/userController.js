@@ -14,14 +14,14 @@ const getUsers = async (req, res, next) => {
   }
 };
 
-// @desc  Get agents + admins only (for assignment dropdowns)
+// @desc  Get active team members (for ticket assignment dropdowns)
 // @route GET /api/users/agents
 // @access admin, agent
 const getAgents = async (req, res, next) => {
   try {
-    const filter = { role: { $in: ['agent', 'manager', 'admin'] }, isActive: true };
+    const filter = { isActive: true };
     if (req.user.role === 'manager') filter.departmentId = req.user.departmentId || null;
-    const agents = await User.find(filter).sort({
+    const agents = await User.find(filter).populate('departmentId', 'name').sort({
       name: 1,
     });
     res.json(agents.map((u) => u.toSafeObject()));

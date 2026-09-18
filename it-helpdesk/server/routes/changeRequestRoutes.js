@@ -5,5 +5,5 @@ const { getChangeRequests, createChangeRequest, updateChangeRequest } = require(
 
 router.get('/', protect, getChangeRequests);
 router.post('/', protect, createChangeRequest);
-router.put('/:id', protect, authorize('admin', 'manager', 'agent'), updateChangeRequest);
+router.put('/:id', protect, authorize('admin', 'manager', 'agent', 'employee'), updateChangeRequest);
 module.exports = router;

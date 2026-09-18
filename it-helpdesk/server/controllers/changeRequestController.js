@@ -38,6 +38,9 @@ const updateChangeRequest = async (req, res, next) => {
   try {
     const existing = await ChangeRequest.findById(req.params.id).populate('relatedTicket', 'departmentId');
     if (!existing) return res.status(404).json({ message: 'Change request not found' });
+    if (req.user.role === 'employee' && String(existing.createdBy) !== String(req.user._id)) {
+      return res.status(403).json({ message: 'You can only edit your own change requests' });
+    }
     if (req.user.role === 'manager' && (!req.user.departmentId || String(existing.relatedTicket?.departmentId) !== String(req.user.departmentId))) {
       return res.status(403).json({ message: 'Managers can only manage change requests in their department' });
     }

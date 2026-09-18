@@ -3,9 +3,11 @@ const router = express.Router();
 const { protect, authorize } = require('../middleware/auth');
 const KnowledgeBase = require('../models/KnowledgeBase');
 const Ticket = require('../models/Ticket');
+const Comment = require('../models/Comment');
 
 router.get('/', protect, async (req, res, next) => {
   try {
+    const { q = '', status = 'all' } = req.query;
     const filter = {};
     if (req.user.role === 'employee') {
       filter.createdBy = req.user._id;
@@ -19,31 +21,69 @@ router.get('/', protect, async (req, res, next) => {
       .populate('departmentId', 'name')
       .sort({ createdAt: -1 });
 
+    const normalizedQuery = q.trim().toLowerCase();
+    const matchesSearch = (value) => !normalizedQuery || String(value || '').toLowerCase().includes(normalizedQuery);
+    const visibleRecords = records.filter((record) => (
+      matchesSearch(record.title)
+      || matchesSearch(record.summary)
+      || matchesSearch(record.content)
+      || matchesSearch(record.category)
+      || (record.tags || []).some((tag) => matchesSearch(tag))
+    ));
+
     const ticketScope = req.user.role === 'employee'
       ? { createdBy: req.user._id, status: { $in: ['Resolved', 'Closed'] } }
       : req.user.role === 'manager'
         ? { departmentId: req.user.departmentId || null, status: { $in: ['Resolved', 'Closed'] } }
         : { status: { $in: ['Resolved', 'Closed'] } };
 
-    const completedTickets = await Ticket.find(ticketScope)
+    const completedTickets = await Ticket.find({
+      ...ticketScope,
+      ...(status === 'all' ? {} : { status }),
+    })
       .populate('createdBy', 'name')
       .populate('assignedTo', 'name')
       .populate('category', 'name')
       .sort({ updatedAt: -1 })
-      .limit(20);
+      .limit(100);
 
-    const generatedEntries = completedTickets.map((ticket) => ({
+    const comments = await Comment.find({ ticket: { $in: completedTickets.map((ticket) => ticket._id) } })
+      .populate('author', 'name role')
+      .sort({ createdAt: 1 });
+    const commentsByTicket = comments.reduce((result, comment) => {
+      const key = String(comment.ticket);
+      if (!result[key]) result[key] = [];
+      if (req.user.role !== 'employee' || !comment.isInternal) result[key].push(comment);
+      return result;
+    }, {});
+
+    const generatedEntries = completedTickets.filter((ticket) => {
+      const ticketComments = commentsByTicket[String(ticket._id)] || [];
+      return matchesSearch(ticket.ticketNumber)
+        || matchesSearch(ticket.title)
+        || matchesSearch(ticket.description)
+        || matchesSearch(ticket.category?.name)
+        || (ticket.activity || []).some((entry) => matchesSearch(entry.message))
+        || ticketComments.some((comment) => matchesSearch(comment.message));
+    }).map((ticket) => ({
       _id: `ticket-${ticket._id}`,
       generated: true,
+      ticketId: ticket._id,
       title: `${ticket.ticketNumber} - ${ticket.title}`,
-      summary: `Resolved on ${ticket.resolvedAt ? new Date(ticket.resolvedAt).toLocaleDateString() : 'recently'} with follow-up on ${ticket.category?.name || 'the issue'}.`,
+      summary: `Closed/resolved on ${ticket.resolvedAt || ticket.closedAt ? new Date(ticket.resolvedAt || ticket.closedAt).toLocaleDateString() : 'recently'} in ${ticket.category?.name || 'the helpdesk'}.`,
       content: [
         `Status: ${ticket.status}`,
         `Priority: ${ticket.priority}`,
+        `Problem reported: ${ticket.description}`,
         `Assigned to: ${ticket.assignedTo?.name || 'Unassigned'}`,
         `Created by: ${ticket.createdBy?.name || 'User'}`,
-        'Resolution activity:',
+        `Resolution time: ${ticket.resolutionHours || 0} hours`,
+        '',
+        'What the helpdesk did:',
         ...(ticket.activity || []).slice(-6).map((entry) => `- ${entry.message}`),
+        '',
+        'Solution and follow-up notes:',
+        ...(commentsByTicket[String(ticket._id)] || []).map((comment) => `- ${comment.author?.name || 'Helpdesk'}: ${comment.message}`),
       ].join('\n'),
       category: 'Resolved Ticket History',
       createdBy: ticket.assignedTo || ticket.createdBy,
@@ -52,7 +92,7 @@ router.get('/', protect, async (req, res, next) => {
       isGenerated: true,
     }));
 
-    res.json([...generatedEntries, ...records.map((record) => ({ ...record.toObject(), isGenerated: false }))]);
+    res.json([...generatedEntries, ...visibleRecords.map((record) => ({ ...record.toObject(), isGenerated: false }))]);
   } catch (error) {
     next(error);
   }
