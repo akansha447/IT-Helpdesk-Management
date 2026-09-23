@@ -98,7 +98,7 @@ function App() {
       />
       <Route path="/change-requests" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><ChangeRequests /></Layout></ProtectedRoute>} />
       <Route path="/cab" element={<ProtectedRoute roles={['admin', 'manager']}><Layout><Cab /></Layout></ProtectedRoute>} />
-      <Route path="/cab/create" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><CabCreate /></Layout></ProtectedRoute>} />
+      <Route path="/cab/create" element={<ProtectedRoute roles={['admin']}><Layout><CabCreate /></Layout></ProtectedRoute>} />
       <Route path="/cab/authorization" element={<ProtectedRoute roles={['admin', 'manager']}><Layout><Cab /></Layout></ProtectedRoute>} />
       <Route path="/cab/implementation" element={<ProtectedRoute roles={['admin', 'manager', 'agent']}><Layout><CabImplementation /></Layout></ProtectedRoute>} />
       <Route path="/cab/post-implementation" element={<ProtectedRoute roles={['admin', 'manager']}><Layout><CabPostImplementation /></Layout></ProtectedRoute>} />

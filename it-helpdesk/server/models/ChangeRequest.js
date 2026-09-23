@@ -4,6 +4,7 @@ const changeRequestSchema = new mongoose.Schema(
   {
     crNumber: { type: String, unique: true },
     relatedTicket: { type: mongoose.Schema.Types.ObjectId, ref: 'Ticket', required: true },
+    cabAuthority: { type: mongoose.Schema.Types.ObjectId, ref: 'CabAuthorizer', required: true },
     changeType: { type: String, enum: ['Standard', 'Normal', 'Emergency'], required: true },
     description: { type: String, required: true },
     businessJustification: { type: String, required: true },

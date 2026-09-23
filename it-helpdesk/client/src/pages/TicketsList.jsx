@@ -47,13 +47,26 @@ const TicketsList = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  const downloadAttachment = async (event, ticket) => {
+    event.stopPropagation();
+    const response = await api.get(`/tickets/${ticket._id}/attachment`, { responseType: 'blob' });
+    const url = window.URL.createObjectURL(response.data);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = ticket.attachment?.originalName || ticket.attachmentName || 'ticket-attachment';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink-950">Tickets</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {user.role === 'employee' ? 'Tickets you have raised' : 'All tickets in the queue'}
+            {user.role === 'employee' ? 'Tickets you have raised or are assigned to' : 'All tickets in the queue'}
           </p>
         </div>
         <Link
@@ -128,16 +141,17 @@ const TicketsList = () => {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-soft">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-soft scrollbar-thin">
+        <table className="w-full min-w-[1650px] text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
-              <th className="px-5 py-3">Ticket no</th>
+              <th className="sticky left-0 z-10 bg-slate-50 px-5 py-3">Ticket no</th>
               {user.role === 'admin' && <><th className="px-5 py-3">Client</th><th className="px-5 py-3">Department</th><th className="px-5 py-3">Severity</th><th className="px-5 py-3">Pickup</th><th className="px-5 py-3">Completion</th></>}
               <th className="px-5 py-3">Category</th>
               <th className="px-5 py-3">Priority</th>
               <th className="px-5 py-3">Status</th>
               {user.role !== 'employee' && <th className="px-5 py-3">Assigned to</th>}
+              <th className="px-5 py-3">Document</th>
               <th className="px-5 py-3">Created</th>
               {user.role === 'admin' && <><th className="px-5 py-3">Response</th><th className="px-5 py-3">Record time</th><th className="px-5 py-3">SLA status</th><th className="px-5 py-3">Compliance</th><th className="px-5 py-3">Breach</th><th className="px-5 py-3">Action</th></>}
             </tr>
@@ -145,14 +159,14 @@ const TicketsList = () => {
           <tbody className="divide-y divide-slate-100">
             {loading && (
               <tr>
-                <td colSpan={user.role === 'admin' ? 17 : 6} className="px-5 py-10 text-center text-slate-400">
+                <td colSpan={user.role === 'admin' ? 18 : 7} className="px-5 py-10 text-center text-slate-400">
                   Loading tickets…
                 </td>
               </tr>
             )}
             {!loading && tickets.length === 0 && (
               <tr>
-                <td colSpan={user.role === 'admin' ? 17 : 6} className="px-5 py-10 text-center text-slate-400">
+                <td colSpan={user.role === 'admin' ? 18 : 7} className="px-5 py-10 text-center text-slate-400">
                   No tickets match these filters.
                 </td>
               </tr>
@@ -162,9 +176,9 @@ const TicketsList = () => {
                 <tr
                   key={ticket._id}
                   onClick={() => (window.location.href = `/tickets/${ticket._id}`)}
-                  className="cursor-pointer transition-colors hover:bg-slate-50"
+                  className="group cursor-pointer transition-colors hover:bg-slate-50"
                 >
-                  <td className="px-5 py-3.5">
+                  <td className="sticky left-0 z-[1] bg-white px-5 py-3.5 group-hover:bg-slate-50">
                     <Link to={`/tickets/${ticket._id}`} className="block">
                       <p className="font-mono text-xs text-slate-400">{ticket.ticketNumber}</p>
                       <p className="font-medium text-ink-900">{ticket.title}</p>
@@ -188,6 +202,9 @@ const TicketsList = () => {
                       )}
                     </td>
                   )}
+                  <td className="px-5 py-3.5">
+                    {ticket.attachment?.storedName ? <button type="button" title="Download document" onClick={(event) => downloadAttachment(event, ticket)} className="font-medium text-teal-600 hover:text-teal-700">Download</button> : ticket.attachmentName ? <span className="text-xs text-slate-400">Filename only</span> : <span className="text-slate-400">—</span>}
+                  </td>
                   <td className="px-5 py-3.5 text-slate-500">
                     {formatDistanceToNow(new Date(ticket.updatedAt), { addSuffix: true })}
                   </td>

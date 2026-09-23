@@ -10,10 +10,10 @@ const getComments = async (req, res, next) => {
       return res.status(404).json({ message: 'Ticket not found' });
     }
 
-    if (req.user.role === 'employee' && String(ticket.createdBy) !== String(req.user._id)) {
+    if (req.user.role === 'employee' && String(ticket.createdBy) !== String(req.user._id) && String(ticket.assignedTo) !== String(req.user._id)) {
       return res.status(403).json({ message: 'Forbidden: not your ticket' });
     }
-    if (req.user.role === 'manager' && (!req.user.departmentId || String(ticket.departmentId) !== String(req.user.departmentId))) {
+    if (req.user.role === 'manager' && (!req.user.departmentId || (String(ticket.departmentId) !== String(req.user.departmentId) && String(ticket.assignedTo) !== String(req.user._id)))) {
       return res.status(403).json({ message: 'Managers can only access comments in their department' });
     }
 
@@ -46,10 +46,10 @@ const addComment = async (req, res, next) => {
       return res.status(404).json({ message: 'Ticket not found' });
     }
 
-    if (req.user.role === 'employee' && String(ticket.createdBy) !== String(req.user._id)) {
+    if (req.user.role === 'employee' && String(ticket.createdBy) !== String(req.user._id) && String(ticket.assignedTo) !== String(req.user._id)) {
       return res.status(403).json({ message: 'Forbidden: not your ticket' });
     }
-    if (req.user.role === 'manager' && (!req.user.departmentId || String(ticket.departmentId) !== String(req.user.departmentId))) {
+    if (req.user.role === 'manager' && (!req.user.departmentId || (String(ticket.departmentId) !== String(req.user.departmentId) && String(ticket.assignedTo) !== String(req.user._id)))) {
       return res.status(403).json({ message: 'Managers can only comment on tickets in their department' });
     }
 

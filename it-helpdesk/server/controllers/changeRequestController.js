@@ -1,5 +1,6 @@
 const ChangeRequest = require('../models/ChangeRequest');
 const Ticket = require('../models/Ticket');
+const CabAuthorizer = require('../models/CabAuthorizer');
 
 const getChangeRequests = async (req, res, next) => {
   try {
@@ -11,6 +12,7 @@ const getChangeRequests = async (req, res, next) => {
     }
     const records = await ChangeRequest.find(filter)
       .populate('relatedTicket', 'ticketNumber title')
+      .populate('cabAuthority', 'name email username')
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 });
     res.json(records);
@@ -19,10 +21,12 @@ const getChangeRequests = async (req, res, next) => {
 
 const createChangeRequest = async (req, res, next) => {
   try {
-    const required = ['relatedTicket', 'changeType', 'description', 'businessJustification'];
-    if (required.some((key) => !req.body[key])) return res.status(400).json({ message: 'Related ticket, change type, description and business justification are required' });
+    const required = ['relatedTicket', 'cabAuthority', 'changeType', 'description', 'businessJustification'];
+    if (required.some((key) => !req.body[key])) return res.status(400).json({ message: 'Related ticket, CAB authority, change type, description and business justification are required' });
     const ticket = await Ticket.findById(req.body.relatedTicket);
     if (!ticket) return res.status(400).json({ message: 'Related ticket not found' });
+    const authorizer = await CabAuthorizer.findOne({ _id: req.body.cabAuthority, isActive: true });
+    if (!authorizer) return res.status(400).json({ message: 'Invalid or inactive CAB authority' });
     if (req.user.role === 'employee' && String(ticket.createdBy) !== String(req.user._id)) {
       return res.status(403).json({ message: 'You can only use your own tickets' });
     }
@@ -44,7 +48,11 @@ const updateChangeRequest = async (req, res, next) => {
     if (req.user.role === 'manager' && (!req.user.departmentId || String(existing.relatedTicket?.departmentId) !== String(req.user.departmentId))) {
       return res.status(403).json({ message: 'Managers can only manage change requests in their department' });
     }
-    const { status, cabDecision, cabDecisionBy, cabDecisionAt, implementationStartedAt, implementationCompletedAt, pirCompletedBy, pirCompletedAt, ...editableFields } = req.body;
+    if (req.body.cabAuthority) {
+      const authorizer = await CabAuthorizer.findOne({ _id: req.body.cabAuthority, isActive: true });
+      if (!authorizer) return res.status(400).json({ message: 'Invalid or inactive CAB authority' });
+    }
+    const { status, cabDecision, cabDecisionBy, cabDecisionAt, implementationStartedAt, implementationCompletedAt, pirCompletedBy, pirCompletedAt, requesterName, createdBy, ...editableFields } = req.body;
     const record = await ChangeRequest.findByIdAndUpdate(req.params.id, editableFields, { new: true, runValidators: true });
     res.json(record);
   } catch (error) { next(error); }

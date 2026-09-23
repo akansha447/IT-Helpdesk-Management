@@ -5,15 +5,20 @@ const {
   createTicket,
   getTickets,
   getTicketById,
+  downloadTicketAttachment,
+  uploadTicketAttachment,
   updateTicket,
   deleteTicket,
 } = require('../controllers/ticketController');
 const commentRoutes = require('./commentRoutes');
 const { authorize } = require('../middleware/auth');
+const { uploadTicketAttachment: uploadTicketFile } = require('../middleware/upload');
 
 router.use('/:ticketId/comments', commentRoutes);
 
-router.route('/').get(protect, getTickets).post(protect, createTicket);
+router.route('/').get(protect, getTickets).post(protect, uploadTicketFile.single('attachment'), createTicket);
+router.get('/:id/attachment', protect, downloadTicketAttachment);
+router.put('/:id/attachment', protect, uploadTicketFile.single('attachment'), uploadTicketAttachment);
 router
   .route('/:id')
   .get(protect, getTicketById)

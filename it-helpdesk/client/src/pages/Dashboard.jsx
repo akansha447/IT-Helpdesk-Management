@@ -70,7 +70,7 @@ const Dashboard = () => {
         </h1>
         <p className="mt-1 text-sm text-slate-500">
           {user.role === 'employee'
-            ? "Here's where things stand with the tickets you've raised."
+            ? "Here's where things stand with the tickets you've raised or been assigned."
             : 'Live status across every open ticket in the queue.'}
         </p>
       </div>

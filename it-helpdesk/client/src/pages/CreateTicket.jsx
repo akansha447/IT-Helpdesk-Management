@@ -11,6 +11,7 @@ const CreateTicket = () => {
   const { user } = useAuth();
   const [categories, setCategories] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [attachment, setAttachment] = useState(null);
   const [form, setForm] = useState({ title: '', description: '', category: '', departmentId: '', severity: 'Medium', priority: 'P2', resolutionHours: 8, problemType: '', branchSite: '', attachmentName: '' });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -30,7 +31,10 @@ const CreateTicket = () => {
     setError('');
     setSubmitting(true);
     try {
-      const { data } = await api.post('/tickets', form);
+      const payload = new FormData();
+      Object.entries(form).forEach(([key, value]) => payload.append(key, value ?? ''));
+      if (attachment) payload.append('attachment', attachment);
+      const { data } = await api.post('/tickets', payload);
       navigate(`/tickets/${data._id}`);
     } catch (err) {
       setError(err.response?.data?.message || 'Could not create the ticket.');
@@ -109,7 +113,7 @@ const CreateTicket = () => {
           <label className="block"><span className="mb-1.5 block text-sm font-medium text-ink-800">Resolution time (hours)</span><input required type="number" min="1" value={form.resolutionHours} onChange={(e) => setForm({ ...form, resolutionHours: e.target.value })} className="focus-ring w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></label>
           <label className="block"><span className="mb-1.5 block text-sm font-medium text-ink-800">Type of problem</span><input required value={form.problemType} onChange={(e) => setForm({ ...form, problemType: e.target.value })} className="focus-ring w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></label>
           <label className="block"><span className="mb-1.5 block text-sm font-medium text-ink-800">Branch / site</span><input required value={form.branchSite} onChange={(e) => setForm({ ...form, branchSite: e.target.value })} className="focus-ring w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" /></label>
-          <label className="col-span-2 block"><span className="mb-1.5 block text-sm font-medium text-ink-800">Add attachment</span><input type="file" onChange={(e) => setForm({ ...form, attachmentName: e.target.files[0]?.name || '' })} className="w-full text-sm" /></label>
+          <label className="col-span-2 block"><span className="mb-1.5 block text-sm font-medium text-ink-800">Add attachment</span><input type="file" onChange={(e) => setAttachment(e.target.files[0] || null)} className="w-full text-sm" /><span className="mt-1 block text-xs text-slate-400">Maximum file size: 10 MB</span></label>
         </div>
 
         <div className="flex justify-end gap-3">

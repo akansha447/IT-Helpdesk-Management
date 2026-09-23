@@ -29,6 +29,12 @@ const ticketSchema = new mongoose.Schema(
     problemType: { type: String, default: '' },
     branchSite: { type: String, default: '' },
     attachmentName: { type: String, default: '' },
+    attachment: {
+      storedName: { type: String, default: '' },
+      originalName: { type: String, default: '' },
+      mimeType: { type: String, default: '' },
+      size: { type: Number, default: 0 },
+    },
     resolutionHours: { type: Number, default: 0 },
     status: {
       type: String,

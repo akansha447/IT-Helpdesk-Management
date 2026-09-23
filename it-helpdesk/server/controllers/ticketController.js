@@ -2,6 +2,11 @@ const Ticket = require('../models/Ticket');
 const Category = require('../models/Category');
 const Comment = require('../models/Comment');
 const Department = require('../models/Department');
+const User = require('../models/User');
+const { sendEmail } = require('../utils/email');
+const fs = require('fs');
+const path = require('path');
+const { uploadDirectory } = require('../middleware/upload');
 
 const POPULATE_FIELDS = [
   { path: 'category', select: 'name baseSlaHours' },
@@ -46,7 +51,8 @@ const createTicket = async (req, res, next) => {
       priority: selectedPriority,
       problemType,
       branchSite,
-      attachmentName,
+      attachmentName: req.file?.originalname || attachmentName || '',
+      attachment: req.file ? { storedName: req.file.filename, originalName: req.file.originalname, mimeType: req.file.mimetype, size: req.file.size } : undefined,
       resolutionHours: Number(resolutionHours) || 0,
       createdBy: req.user._id,
       dueAt,
@@ -55,6 +61,11 @@ const createTicket = async (req, res, next) => {
     });
 
     await ticket.populate(POPULATE_FIELDS);
+    sendEmail({
+      to: req.user.email,
+      subject: `Ticket ${ticket.ticketNumber} created`,
+      text: `Hello ${req.user.name},\n\nYour ticket ${ticket.ticketNumber} has been created.\n\nTitle: ${ticket.title}\nStatus: ${ticket.status}\nPriority: ${ticket.priority}\n\nIT Helpdesk`,
+    }).catch((error) => console.error('Ticket creation email failed:', error.message));
     res.status(201).json(ticket);
   } catch (error) {
     next(error);
@@ -63,17 +74,17 @@ const createTicket = async (req, res, next) => {
 
 // @desc  List tickets (scoped by role, with optional filters)
 // @route GET /api/tickets?status=&priority=&category=&assignedTo=&overdue=true&search=
-// @access employee (own only), agent/admin (all)
+// @access employee (created or assigned), agent/admin (all)
 const getTickets = async (req, res, next) => {
   try {
     const { status, priority, category, assignedTo, overdue, search } = req.query;
     const filter = {};
 
     if (req.user.role === 'employee') {
-      filter.createdBy = req.user._id;
+      filter.$or = [{ createdBy: req.user._id }, { assignedTo: req.user._id }];
     } else if (req.user.role === 'manager') {
       if (!req.user.departmentId) return res.json([]);
-      filter.departmentId = req.user.departmentId || null;
+      filter.$or = [{ departmentId: req.user.departmentId }, { assignedTo: req.user._id }];
     }
 
     if (status) filter.status = status;
@@ -109,14 +120,60 @@ const getTicketById = async (req, res, next) => {
     }
 
     const cannotViewTicket = req.user.role === 'employee'
-      ? String(ticket.createdBy._id) !== String(req.user._id)
+      ? String(ticket.createdBy?._id || ticket.createdBy) !== String(req.user._id) && String(ticket.assignedTo?._id || ticket.assignedTo) !== String(req.user._id)
       : req.user.role === 'manager'
-        ? !req.user.departmentId || String(ticket.departmentId?._id || ticket.departmentId) !== String(req.user.departmentId)
+        ? (!req.user.departmentId || (String(ticket.departmentId?._id || ticket.departmentId) !== String(req.user.departmentId) && String(ticket.assignedTo?._id || ticket.assignedTo) !== String(req.user._id)))
         : false;
     if (cannotViewTicket) {
       return res.status(403).json({ message: 'Forbidden: not your ticket' });
     }
 
+    res.json(ticket);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const downloadTicketAttachment = async (req, res, next) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket?.attachment?.storedName) return res.status(404).json({ message: 'No attachment found for this ticket' });
+
+    const cannotViewTicket = req.user.role === 'employee'
+      ? String(ticket.createdBy) !== String(req.user._id) && String(ticket.assignedTo) !== String(req.user._id)
+      : req.user.role === 'manager'
+        ? (!req.user.departmentId || (String(ticket.departmentId) !== String(req.user.departmentId) && String(ticket.assignedTo) !== String(req.user._id)))
+        : false;
+    if (cannotViewTicket) return res.status(403).json({ message: 'Forbidden: not your ticket' });
+
+    const filePath = path.join(uploadDirectory, path.basename(ticket.attachment.storedName));
+    if (!fs.existsSync(filePath)) return res.status(404).json({ message: 'Attachment file is unavailable' });
+    res.download(filePath, ticket.attachment.originalName || ticket.attachmentName || 'attachment');
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadTicketAttachment = async (req, res, next) => {
+  try {
+    const ticket = await Ticket.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
+    const canAccess = req.user.role === 'admin'
+      || (req.user.role === 'manager' && req.user.departmentId && (String(ticket.departmentId) === String(req.user.departmentId) || String(ticket.assignedTo) === String(req.user._id)))
+      || String(ticket.createdBy) === String(req.user._id)
+      || String(ticket.assignedTo) === String(req.user._id);
+    if (!canAccess) return res.status(403).json({ message: 'Forbidden: cannot update this ticket attachment' });
+    if (!req.file) return res.status(400).json({ message: 'Please select a document to upload' });
+
+    if (ticket.attachment?.storedName) {
+      const oldPath = path.join(uploadDirectory, path.basename(ticket.attachment.storedName));
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+    ticket.attachmentName = req.file.originalname;
+    ticket.attachment = { storedName: req.file.filename, originalName: req.file.originalname, mimeType: req.file.mimetype, size: req.file.size };
+    ticket.activity.push({ message: `Document uploaded by ${req.user.name}`, actor: req.user._id });
+    await ticket.save();
+    await ticket.populate(POPULATE_FIELDS);
     res.json(ticket);
   } catch (error) {
     next(error);
@@ -139,6 +196,11 @@ const updateTicket = async (req, res, next) => {
 
     const { title, description, category, severity, priority, status, assignedTo, problemType, branchSite, resolutionHours } = req.body;
     const logs = [];
+    const previousAssignedTo = ticket.assignedTo ? String(ticket.assignedTo) : '';
+    const assignedUser = assignedTo ? await User.findById(assignedTo).select('name email isActive') : null;
+    if (assignedTo && (!assignedUser || !assignedUser.isActive)) {
+      return res.status(400).json({ message: 'Assigned user not found or inactive' });
+    }
 
     if (req.user.role === 'employee') {
       if (String(ticket.createdBy) !== String(req.user._id)) {
@@ -170,7 +232,7 @@ const updateTicket = async (req, res, next) => {
         ticket.assignedTo = assignedTo || null;
         logs.push(
           assignedTo
-            ? `Ticket assigned by ${req.user.name}`
+            ? `Ticket assigned to ${assignedUser.name} by ${req.user.name}`
             : `Ticket unassigned by ${req.user.name}`
         );
       }
@@ -186,7 +248,7 @@ const updateTicket = async (req, res, next) => {
 
     logs.forEach((message) => ticket.activity.push({ message, actor: req.user._id }));
 
-    const actor = await require('../models/User').findById(req.user._id);
+    const actor = await User.findById(req.user._id);
     if (actor) {
       actor.activityLog = actor.activityLog || [];
       actor.activityLog.push({
@@ -203,6 +265,13 @@ const updateTicket = async (req, res, next) => {
 
     await ticket.save();
     await ticket.populate(POPULATE_FIELDS);
+    if (assignedTo !== undefined && String(assignedTo || '') !== previousAssignedTo && ticket.assignedTo?.email) {
+      sendEmail({
+        to: ticket.assignedTo.email,
+        subject: `Ticket ${ticket.ticketNumber} assigned to you`,
+        text: `Hello ${ticket.assignedTo.name},\n\nTicket ${ticket.ticketNumber} has been assigned to you by ${req.user.name}.\n\nTitle: ${ticket.title}\nPriority: ${ticket.priority}\nStatus: ${ticket.status}\n\nPlease sign in to the IT Helpdesk to review it.`,
+      }).catch((error) => console.error('Ticket assignment email failed:', error.message));
+    }
     res.json(ticket);
   } catch (error) {
     next(error);
@@ -226,4 +295,4 @@ const deleteTicket = async (req, res, next) => {
   }
 };
 
-module.exports = { createTicket, getTickets, getTicketById, updateTicket, deleteTicket };
+module.exports = { createTicket, getTickets, getTicketById, downloadTicketAttachment, uploadTicketAttachment, updateTicket, deleteTicket };

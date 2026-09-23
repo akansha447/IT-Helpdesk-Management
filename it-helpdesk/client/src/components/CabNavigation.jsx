@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { ClipboardCheck, ClipboardPlus, Hammer } from 'lucide-react';
 
 const ITEMS = [
-  { to: '/cab/create', label: 'Create', icon: ClipboardPlus },
+  { to: '/cab/create', label: 'Authorizers', icon: ClipboardPlus },
   { to: '/cab/authorization', label: 'Authorization', icon: ClipboardCheck },
   { to: '/cab/implementation', label: 'Implementation', icon: Hammer },
   { to: '/cab/post-implementation', label: 'Post-implementation', icon: ClipboardCheck },

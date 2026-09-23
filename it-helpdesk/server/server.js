@@ -15,8 +15,14 @@ const changeRequestRoutes = require('./routes/changeRequestRoutes');
 const knowledgeBaseRoutes = require('./routes/knowledgeBaseRoutes');
 const exportRoutes = require('./routes/exportRoutes');
 const activityRoutes = require('./routes/activityRoutes');
+const cabAuthorizerRoutes = require('./routes/cabAuthorizerRoutes');
+const { isEmailConfigured } = require('./utils/email');
 
 connectDB();
+
+if (!isEmailConfigured()) {
+	console.warn('Ticket email notifications are disabled. Configure SMTP_HOST, SMTP_USER and SMTP_PASS in server/.env.');
+}
 
 const app = express();
 
@@ -36,6 +42,7 @@ app.use('/api/change-requests', changeRequestRoutes);
 app.use('/api/knowledge-base', knowledgeBaseRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/activity', activityRoutes);
+app.use('/api/cab-authorizers', cabAuthorizerRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, AlertTriangle, Lock, Send, Trash2 } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Download, Lock, Send, Trash2 } from 'lucide-react';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
@@ -18,7 +18,14 @@ const TicketDetail = () => {
   const [ticket, setTicket] = useState(null);
   const [comments, setComments] = useState([]);
   const [agents, setAgents] = useState([]);
+  const [assignedUserId, setAssignedUserId] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [assignmentError, setAssignmentError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [downloadError, setDownloadError] = useState('');
+  const [attachmentFile, setAttachmentFile] = useState(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [message, setMessage] = useState('');
   const [isInternal, setIsInternal] = useState(false);
   const [posting, setPosting] = useState(false);
@@ -27,17 +34,24 @@ const TicketDetail = () => {
   const isStaff = user.role === 'admin' || user.role === 'manager' || user.role === 'agent';
 
   const load = useCallback(async () => {
-    const [ticketRes, commentsRes] = await Promise.all([
-      api.get(`/tickets/${id}`),
-      api.get(`/tickets/${id}/comments`),
-    ]);
-    setTicket(ticketRes.data);
-    setComments(commentsRes.data);
-    if (isStaff) {
-      const agentsRes = await api.get('/users/agents');
-      setAgents(agentsRes.data);
+    setLoadError('');
+    try {
+      const [ticketRes, commentsRes] = await Promise.all([
+        api.get(`/tickets/${id}`),
+        api.get(`/tickets/${id}/comments`),
+      ]);
+      setTicket(ticketRes.data);
+      setAssignedUserId(ticketRes.data.assignedTo?._id || '');
+      setComments(commentsRes.data);
+      if (isStaff) {
+        const agentsRes = await api.get('/users/agents');
+        setAgents(agentsRes.data);
+      }
+    } catch (error) {
+      setLoadError(error.response?.data?.message || 'Could not load this ticket.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -48,6 +62,52 @@ const TicketDetail = () => {
   const patchTicket = async (payload) => {
     const { data } = await api.put(`/tickets/${id}`, payload);
     setTicket(data);
+  };
+
+  const handleAssign = async () => {
+    setAssigning(true);
+    setAssignmentError('');
+    try {
+      await patchTicket({ assignedTo: assignedUserId || null });
+    } catch (error) {
+      setAssignmentError(error.response?.data?.message || 'Could not assign this ticket.');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleDownloadAttachment = async () => {
+    setDownloadError('');
+    try {
+      const response = await api.get(`/tickets/${id}/attachment`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(response.data);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = ticket.attachment?.originalName || ticket.attachmentName || 'ticket-attachment';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      setDownloadError(error.response?.data?.message || 'Could not download this document.');
+    }
+  };
+
+  const handleUploadAttachment = async () => {
+    if (!attachmentFile) return;
+    setDownloadError('');
+    setUploadingAttachment(true);
+    try {
+      const payload = new FormData();
+      payload.append('attachment', attachmentFile);
+      const { data } = await api.put(`/tickets/${id}/attachment`, payload);
+      setTicket(data);
+      setAttachmentFile(null);
+    } catch (error) {
+      setDownloadError(error.response?.data?.message || 'Could not upload this document.');
+    } finally {
+      setUploadingAttachment(false);
+    }
   };
 
   const handlePostComment = async (e) => {
@@ -71,6 +131,7 @@ const TicketDetail = () => {
   };
 
   if (loading) return <div className="text-sm text-slate-500">Loading ticket…</div>;
+  if (loadError) return <div><p className="text-sm text-coral-500">{loadError}</p><button onClick={() => navigate('/tickets')} className="mt-3 text-sm font-medium text-teal-600">Back to tickets</button></div>;
   if (!ticket) return <div className="text-sm text-slate-500">Ticket not found.</div>;
 
   return (
@@ -106,6 +167,13 @@ const TicketDetail = () => {
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-800">
               {ticket.description}
             </p>
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-sm font-medium text-ink-800">{ticket.attachment?.storedName || ticket.attachmentName ? 'Attached document' : 'Ticket document'}</p>
+                {ticket.attachment?.storedName || ticket.attachmentName ? <p className="mt-1 truncate text-xs text-slate-500">{ticket.attachment?.originalName || ticket.attachmentName}</p> : <p className="mt-1 text-xs text-slate-500">No document attached.</p>}
+                {ticket.attachment?.storedName ? <button type="button" onClick={handleDownloadAttachment} className="mt-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-teal-700 hover:bg-teal-50"><Download size={15} />Download document</button> : ticket.attachmentName ? <p className="mt-2 text-xs text-amber-600">This ticket has the filename only. Upload the document below to enable downloading.</p> : null}
+                <div className="mt-3 flex flex-wrap items-center gap-2"><input type="file" onChange={(event) => setAttachmentFile(event.target.files[0] || null)} className="max-w-full text-xs" /><button type="button" disabled={!attachmentFile || uploadingAttachment} onClick={handleUploadAttachment} className="rounded-lg bg-teal-500 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-600 disabled:opacity-50">{uploadingAttachment ? 'Uploading…' : 'Upload document'}</button></div>
+                {downloadError && <p className="mt-2 text-xs text-coral-500">{downloadError}</p>}
+            </div>
           </div>
 
           <div className="mt-6 rounded-xl border border-slate-200 bg-white shadow-soft">
@@ -269,8 +337,8 @@ const TicketDetail = () => {
               <label className="mb-2 block">
                 <span className="mb-1.5 block text-xs font-medium text-slate-500">Assigned to</span>
                 <select
-                  value={ticket.assignedTo?._id || ''}
-                  onChange={(e) => patchTicket({ assignedTo: e.target.value || null })}
+                  value={assignedUserId}
+                  onChange={(e) => setAssignedUserId(e.target.value)}
                   className="focus-ring w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                 >
                   <option value="">Unassigned</option>
@@ -281,6 +349,15 @@ const TicketDetail = () => {
                   ))}
                 </select>
               </label>
+              {assignmentError && <p className="mb-2 text-xs text-coral-500">{assignmentError}</p>}
+              <button
+                type="button"
+                onClick={handleAssign}
+                disabled={assigning || assignedUserId === (ticket.assignedTo?._id || '')}
+                className="focus-ring w-full rounded-lg bg-teal-500 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {assigning ? 'Assigning…' : ticket.assignedTo?._id ? 'Update assignment' : 'Assign ticket'}
+              </button>
 
               {user.role === 'admin' && (
                 <button

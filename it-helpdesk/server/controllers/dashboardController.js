@@ -6,9 +6,9 @@ const ChangeRequest = require('../models/ChangeRequest');
 const getDashboardStats = async (req, res, next) => {
   try {
     const scopeFilter = req.user.role === 'employee'
-      ? { createdBy: req.user._id }
+      ? { $or: [{ createdBy: req.user._id }, { assignedTo: req.user._id }] }
       : req.user.role === 'manager'
-        ? (req.user.departmentId ? { departmentId: req.user.departmentId } : { _id: null })
+        ? (req.user.departmentId ? { $or: [{ departmentId: req.user.departmentId }, { assignedTo: req.user._id }] } : { assignedTo: req.user._id })
         : {};
 
     const [statusAgg, priorityAgg, tickets, recentTickets, changeRequests, recentChangeRequests] = await Promise.all([
