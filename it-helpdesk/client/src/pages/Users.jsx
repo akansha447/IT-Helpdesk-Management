@@ -145,8 +145,8 @@ const Users = () => {
               users.map((u) => (
                 <tr key={u._id}>
                   <td className="px-5 py-3.5 font-medium text-ink-900">{editing === u._id ? <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-32 rounded border px-2 py-1" /> : <>{u.username || '—'} / {u.name}</>}</td>
-                  <td className="px-5 py-3.5 text-slate-600">{u.email}</td>
-                  <td className="px-5 py-3.5 text-slate-600">{u.employeeId || '—'}</td>
+                  <td className="px-5 py-3.5 font-medium text-ink-900">{editing === u._id ? <input value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className="w-32 rounded border px-2 py-1" /> : <>{u.email}</>}</td>
+                  <td className="px-5 py-3.5 font-medium text-ink-900">{editing === u._id ? <input value={editForm.employeeId} onChange={(e) => setEditForm({ ...editForm, employeeId: e.target.value })} className="w-32 rounded border px-2 py-1" /> : <>{u.employeeId || '—'}</>}</td>
                   <td className="px-5 py-3.5 text-slate-600">{u.departmentId?.name || u.department || '—'}</td>
                   <td className="px-5 py-3.5">
                     <select

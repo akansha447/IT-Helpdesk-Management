@@ -44,9 +44,69 @@ const updateChangeRequest = async (req, res, next) => {
     if (req.user.role === 'manager' && (!req.user.departmentId || String(existing.relatedTicket?.departmentId) !== String(req.user.departmentId))) {
       return res.status(403).json({ message: 'Managers can only manage change requests in their department' });
     }
-    const record = await ChangeRequest.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const { status, cabDecision, cabDecisionBy, cabDecisionAt, implementationStartedAt, implementationCompletedAt, pirCompletedBy, pirCompletedAt, ...editableFields } = req.body;
+    const record = await ChangeRequest.findByIdAndUpdate(req.params.id, editableFields, { new: true, runValidators: true });
     res.json(record);
   } catch (error) { next(error); }
 };
 
-module.exports = { getChangeRequests, createChangeRequest, updateChangeRequest };
+const decideChangeRequest = async (req, res, next) => {
+  try {
+    const { decision, remark } = req.body;
+    if (!['Approved', 'Rejected'].includes(decision)) return res.status(400).json({ message: 'Decision must be Approved or Rejected' });
+
+    const existing = await ChangeRequest.findById(req.params.id).populate('relatedTicket', 'departmentId');
+    if (!existing) return res.status(404).json({ message: 'Change request not found' });
+    if (req.user.role === 'manager' && (!req.user.departmentId || String(existing.relatedTicket?.departmentId) !== String(req.user.departmentId))) {
+      return res.status(403).json({ message: 'Managers can only review changes in their department' });
+    }
+    if (!['Pending CAB', 'Draft'].includes(existing.status)) return res.status(400).json({ message: 'Only draft or pending CAB requests can be decided' });
+
+    const record = await ChangeRequest.findByIdAndUpdate(
+      req.params.id,
+      { status: decision, cabDecision: decision, cabDecisionBy: req.user._id, cabDecisionAt: new Date(), ...(remark !== undefined ? { remark } : {}) },
+      { new: true, runValidators: true }
+    ).populate([{ path: 'relatedTicket', select: 'ticketNumber title' }, { path: 'createdBy', select: 'name' }, { path: 'cabDecisionBy', select: 'name' }]);
+    res.json(record);
+  } catch (error) { next(error); }
+};
+
+const updateImplementation = async (req, res, next) => {
+  try {
+    const { action, implementationOwner, implementationResult, implementationRemark, implementationSteps, rollbackOwner, preImplementationChecks, rollbackPlan, rollbackTriggerConditions, validationSuccessCriteria, monitoringAfterChange, implementationReviewDate, implementationReviewRemark } = req.body;
+    const existing = await ChangeRequest.findById(req.params.id).populate('relatedTicket', 'departmentId');
+    if (!existing) return res.status(404).json({ message: 'Change request not found' });
+    if (req.user.role === 'manager' && (!req.user.departmentId || String(existing.relatedTicket?.departmentId) !== String(req.user.departmentId))) {
+      return res.status(403).json({ message: 'Managers can only implement changes in their department' });
+    }
+    if (action === 'start') {
+      if (existing.status !== 'Approved') return res.status(400).json({ message: 'Only approved changes can be started' });
+      const record = await ChangeRequest.findByIdAndUpdate(req.params.id, { status: 'Implementing', implementationOwner: implementationOwner || req.user.name, implementationSteps: implementationSteps || '', rollbackOwner: rollbackOwner || '', preImplementationChecks: preImplementationChecks || '', rollbackPlan: rollbackPlan || '', rollbackTriggerConditions: rollbackTriggerConditions || '', validationSuccessCriteria: validationSuccessCriteria || '', monitoringAfterChange: monitoringAfterChange || '', implementationReviewDate: implementationReviewDate || undefined, implementationReviewRemark: implementationReviewRemark || '', implementationStartedAt: new Date() }, { new: true, runValidators: true });
+      return res.json(record);
+    }
+    if (action === 'complete') {
+      if (existing.status !== 'Implementing') return res.status(400).json({ message: 'Only implementing changes can be completed' });
+      if (!implementationResult) return res.status(400).json({ message: 'Implementation result is required' });
+      const record = await ChangeRequest.findByIdAndUpdate(req.params.id, { status: 'Implemented', implementationResult, implementationRemark: implementationRemark || '', implementationCompletedAt: new Date() }, { new: true, runValidators: true });
+      return res.json(record);
+    }
+    return res.status(400).json({ message: 'Implementation action must be start or complete' });
+  } catch (error) { next(error); }
+};
+
+const completePostImplementation = async (req, res, next) => {
+  try {
+    const { pirOutcome, pirNotes, changeImplementedAsApproved, securityValidationDone, issuesObserved, rollbackExecuted, postReviewDate, lessonsLearned, closureApprovedBy, postReviewRemark } = req.body;
+    if (!['Successful', 'Successful with issues', 'Failed'].includes(pirOutcome)) return res.status(400).json({ message: 'A valid post-implementation outcome is required' });
+    const existing = await ChangeRequest.findById(req.params.id).populate('relatedTicket', 'departmentId');
+    if (!existing) return res.status(404).json({ message: 'Change request not found' });
+    if (req.user.role === 'manager' && (!req.user.departmentId || String(existing.relatedTicket?.departmentId) !== String(req.user.departmentId))) {
+      return res.status(403).json({ message: 'Managers can only close changes in their department' });
+    }
+    if (existing.status !== 'Implemented') return res.status(400).json({ message: 'Only implemented changes can receive a post-implementation review' });
+    const record = await ChangeRequest.findByIdAndUpdate(req.params.id, { status: 'Closed', pirOutcome, pirNotes: pirNotes || '', changeImplementedAsApproved, securityValidationDone, issuesObserved: issuesObserved || '', rollbackExecuted, postReviewDate: postReviewDate || new Date(), lessonsLearned: lessonsLearned || '', closureApprovedBy: closureApprovedBy || '', postReviewRemark: postReviewRemark || '', pirCompletedBy: req.user._id, pirCompletedAt: new Date() }, { new: true, runValidators: true });
+    res.json(record);
+  } catch (error) { next(error); }
+};
+
+module.exports = { getChangeRequests, createChangeRequest, updateChangeRequest, decideChangeRequest, updateImplementation, completePostImplementation };

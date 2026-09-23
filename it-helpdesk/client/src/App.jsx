@@ -15,6 +15,10 @@ import ChangeRequests from './pages/ChangeRequests';
 import Departments from './pages/Departments';
 import KnowledgeBase from './pages/KnowledgeBase';
 import ActivityLog from './pages/ActivityLog';
+import Cab from './pages/Cab';
+import CabCreate from './pages/CabCreate';
+import CabImplementation from './pages/CabImplementation';
+import CabPostImplementation from './pages/CabPostImplementation';
 
 function App() {
   const { user, loading } = useAuth();
@@ -93,6 +97,11 @@ function App() {
         }
       />
       <Route path="/change-requests" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><ChangeRequests /></Layout></ProtectedRoute>} />
+      <Route path="/cab" element={<ProtectedRoute roles={['admin', 'manager']}><Layout><Cab /></Layout></ProtectedRoute>} />
+      <Route path="/cab/create" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><CabCreate /></Layout></ProtectedRoute>} />
+      <Route path="/cab/authorization" element={<ProtectedRoute roles={['admin', 'manager']}><Layout><Cab /></Layout></ProtectedRoute>} />
+      <Route path="/cab/implementation" element={<ProtectedRoute roles={['admin', 'manager', 'agent']}><Layout><CabImplementation /></Layout></ProtectedRoute>} />
+      <Route path="/cab/post-implementation" element={<ProtectedRoute roles={['admin', 'manager']}><Layout><CabPostImplementation /></Layout></ProtectedRoute>} />
       <Route path="/knowledge-base" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><KnowledgeBase /></Layout></ProtectedRoute>} />
       <Route path="/activity" element={<ProtectedRoute roles={['admin', 'manager', 'agent', 'employee']}><Layout><ActivityLog /></Layout></ProtectedRoute>} />
       <Route path="/departments" element={<ProtectedRoute roles={['admin']}><Layout><Departments /></Layout></ProtectedRoute>} />

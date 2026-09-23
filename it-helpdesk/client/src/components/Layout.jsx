@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
   Ticket,
@@ -11,8 +11,10 @@ import {
   Building2,
   BookOpen,
   History,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import CabNavigation from './CabNavigation';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutGrid, roles: ['admin', 'manager', 'agent', 'employee'] },
@@ -20,6 +22,7 @@ const NAV_ITEMS = [
   { to: '/users', label: 'Team', icon: Users, roles: ['admin', 'manager'] },
   { to: '/categories', label: 'Categories', icon: FolderKanban, roles: ['admin'] },
   { to: '/change-requests', label: 'Change requests', icon: GitPullRequest, roles: ['admin', 'manager', 'agent', 'employee'] },
+  { to: '/cab', label: 'CAB review', icon: ClipboardCheck, roles: ['admin', 'manager'] },
   { to: '/knowledge-base', label: 'Knowledge Base', icon: BookOpen, roles: ['admin', 'manager', 'agent', 'employee'] },
   { to: '/activity', label: 'Activity Log', icon: History, roles: ['admin', 'manager', 'agent', 'employee'] },
   { to: '/departments', label: 'Departments', icon: Building2, roles: ['admin'] },
@@ -30,6 +33,7 @@ const roleLabel = { admin: 'Administrator', manager: 'Manager', agent: 'Agent', 
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
@@ -92,7 +96,7 @@ const Layout = ({ children }) => {
       </aside>
 
       <main className="flex-1 overflow-y-auto scrollbar-thin">
-        <div className="mx-auto max-w-6xl px-8 py-8">{children}</div>
+        <div className="mx-auto max-w-6xl px-8 py-8">{location.pathname.startsWith('/cab') && <CabNavigation />}{children}</div>
       </main>
     </div>
   );
